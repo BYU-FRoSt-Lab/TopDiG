@@ -24,7 +24,7 @@ Cython==0.29.35
 deep-utils==1.2.1
 defusedxml==0.7.1
 descartes==1.1.0
-Detectron==0.0.0
+# Detectron==0.0.0
 dill==0.3.6
 docutils==0.17.1
 easydict==1.10
@@ -35,7 +35,7 @@ filterpy==1.4.5
 Fiona==1.8.22
 fonttools==4.33.3
 fsspec==2023.1.0
-GDAL==2.4.1
+# GDAL==2.4.2
 geopandas==0.10.2
 google-auth==2.6.6
 google-auth-oauthlib==0.4.6
@@ -98,9 +98,9 @@ pycocotools==2.0.4
 Pygments==2.16.1
 pyparsing==3.0.9
 pyproj==3.2.1
-PyQt5==5.15.7
-PyQt5-Qt5==5.15.2
-PyQt5-sip==12.11.0
+PyQt5
+PyQt5-Qt5
+PyQt5-sip
 pyramid==2.0.2
 pyramid-mailer==0.15.1
 python-dateutil==2.8.2
