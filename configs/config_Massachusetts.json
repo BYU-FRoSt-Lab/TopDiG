@@ -2,8 +2,8 @@
   "Experiment":{
     "object_type": "line",
     "pretrain": 0,
-    "infer": 0,
-    "infer_eval": 1,
+    "infer": 1,
+    "infer_eval": 0,
     "save_shp": 0,
     "save_seg": 0,
     "evaluate": 0,

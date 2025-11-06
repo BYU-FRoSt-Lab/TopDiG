@@ -1,15 +1,10 @@
-import torch
-import torch.utils.data as data
-from torch.autograd import Variable as V
-from torchvision import transforms
 import cv2
 import numpy as np
-import os
 
 
-def randomHueSaturationValue(image, hue_shift_limit=(-180, 180),
-                             sat_shift_limit=(-255, 255),
-                             val_shift_limit=(-255, 255), rand=1, u=0.5):
+def randomHueSaturationValue(
+    image, hue_shift_limit=(-180, 180), sat_shift_limit=(-255, 255), val_shift_limit=(-255, 255), rand=1, u=0.5
+):
     if rand < u:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(image)
@@ -26,28 +21,34 @@ def randomHueSaturationValue(image, hue_shift_limit=(-180, 180),
 
     return image
 
-def randomGaussianGlur(img,rand=1,u=0.5):
+
+def randomGaussianGlur(img, rand=1, u=0.5):
     if rand < u:
-        ksize = np.random.choice([3,5,7,11])
-        sigma = np.random.choice([0,0.5,1,1.5,2])
-        img = cv2.GaussianBlur(img,ksize=(ksize,ksize),sigmaX=sigma)
+        ksize = np.random.choice([3, 5, 7, 11])
+        sigma = np.random.choice([0, 0.5, 1, 1.5, 2])
+        img = cv2.GaussianBlur(img, ksize=(ksize, ksize), sigmaX=sigma)
 
     return img
 
-def randomShiftScaleRotate(image, mask1,
-                           shift_limit=(-0.0, 0.0),
-                           scale_limit=(-0.0, 0.0),
-                           rotate_limit=(-0.0, 0.0),
-                           aspect_limit=(-0.0, 0.0),
-                           borderMode=cv2.BORDER_CONSTANT, u=0.5):
+
+def randomShiftScaleRotate(
+    image,
+    mask1,
+    shift_limit=(-0.0, 0.0),
+    scale_limit=(-0.0, 0.0),
+    rotate_limit=(-0.0, 0.0),
+    aspect_limit=(-0.0, 0.0),
+    borderMode=cv2.BORDER_CONSTANT,
+    u=0.5,
+):
     if np.random.random() < u:
         height, width, channel = image.shape
 
         angle = np.random.uniform(rotate_limit[0], rotate_limit[1])
         scale = np.random.uniform(1 + scale_limit[0], 1 + scale_limit[1])
         aspect = np.random.uniform(1 + aspect_limit[0], 1 + aspect_limit[1])
-        sx = scale * aspect / (aspect ** 0.5)
-        sy = scale / (aspect ** 0.5)
+        sx = scale * aspect / (aspect**0.5)
+        sy = scale / (aspect**0.5)
         dx = round(np.random.uniform(shift_limit[0], shift_limit[1]) * width)
         dy = round(np.random.uniform(shift_limit[0], shift_limit[1]) * height)
 
@@ -55,32 +56,30 @@ def randomShiftScaleRotate(image, mask1,
         ss = np.math.sin(angle / 180 * np.math.pi) * sy
         rotate_matrix = np.array([[cc, -ss], [ss, cc]])
 
-        box0 = np.array([[0, 0], [width, 0], [width, height], [0, height], ])
+        box0 = np.array([[0, 0], [width, 0], [width, height], [0, height]])
         box1 = box0 - np.array([width / 2, height / 2])
         box1 = np.dot(box1, rotate_matrix.T) + np.array([width / 2 + dx, height / 2 + dy])
 
         box0 = box0.astype(np.float32)
         box1 = box1.astype(np.float32)
         mat = cv2.getPerspectiveTransform(box0, box1)
-        image = cv2.warpPerspective(image, mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=borderMode,
-                                    borderValue=(
-                                        0, 0,
-                                        0,))
-        mask1 = cv2.warpPerspective(mask1, mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=borderMode,
-                                    borderValue=(
-                                        0, 0,
-                                        0,))
+        image = cv2.warpPerspective(
+            image, mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=borderMode, borderValue=(0, 0, 0)
+        )
+        mask1 = cv2.warpPerspective(
+            mask1, mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=borderMode, borderValue=(0, 0, 0)
+        )
 
     return image, mask1
 
 
-def randomHorizontalFlip(image,rand=1, u=0.5):
+def randomHorizontalFlip(image, rand=1, u=0.5):
     if rand < u:
         image = cv2.flip(image, 1)
     return image
 
 
-def randomVerticleFlip(image,rand=1, u=0.5):
+def randomVerticleFlip(image, rand=1, u=0.5):
     if rand < u:
         image = cv2.flip(image, 0)
     return image
@@ -92,7 +91,7 @@ def randomRotate90(image, rand=1, u=0.5):
     return image
 
 
-def default_loader(img,rand):
+def default_loader(img, rand):
     # img = randomHueSaturationValue(img,
     #                                hue_shift_limit=(-30, 30),
     #                                sat_shift_limit=(-5, 5),
@@ -103,14 +102,14 @@ def default_loader(img,rand):
     #                                    scale_limit=(-0.1, 0.1),
     #                                    aspect_limit=(-0.1, 0.1),
     #                                    rotate_limit=(-0, 0))
-    img = randomHorizontalFlip(img,rand[0])
-    img = randomVerticleFlip(img,rand[1])
-    img = randomRotate90(img,rand[2])
+    img = randomHorizontalFlip(img, rand[0])
+    img = randomVerticleFlip(img, rand[1])
+    img = randomRotate90(img, rand[2])
     # img = randomHueSaturationValue(img)
     return np.ascontiguousarray(img)
 
-def Color_Augment(img,rand):
-    img = randomGaussianGlur(img,rand[0])
-    img = randomHueSaturationValue(img,rand[1])
-    return img
 
+def Color_Augment(img, rand):
+    img = randomGaussianGlur(img, rand[0])
+    img = randomHueSaturationValue(img, rand[1])
+    return img

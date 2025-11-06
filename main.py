@@ -41,9 +41,9 @@ parser.add_argument(
     "--configs_path",
     # type=str,
     # default=r'./configs/config_GID.json',
-    # default=r'./configs/config_Massachusetts.json',
+    default=r"./configs/config_Massachusetts.json",
     # default=r'./configs/config_DeepGlobe.json',
-    default=r"./configs/config_CrowdAI.json",
+    # default=r"./configs/config_CrowdAI.json",
     # default=r'./configs/config_Inria.json',
     help="Name of the configs file, excluding the .json file extension.",
 )

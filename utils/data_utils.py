@@ -1,40 +1,33 @@
-import cv2
+import copy
+
 import cv2 as cv
 import numpy as np
-import os
 import torch
-from scipy import interpolate
-from skimage.morphology import skeletonize
-from skan import skeleton_to_csgraph
-from scipy.spatial import KDTree
-import matplotlib.pyplot as plt
-from scipy.spatial import cKDTree
-from jsmin import jsmin
-from skimage import measure
 from scipy.ndimage import convolve
-import json
+from scipy.spatial import cKDTree
+from skimage.morphology import skeletonize
 from sknw import build_sknw
-import copy
 
 
 def build_ske(ske, ori_mask):
     graph = build_sknw(ske)
     nodes = graph.nodes()
-    pt = [nodes[i]['o'] for i in nodes]
+    pt = [nodes[i]["o"] for i in nodes]
     pointmap = np.zeros((ori_mask.shape[0], ori_mask.shape[1]), np.uint8)
-    for i in range(0, len(pt)):
+    for i in range(len(pt)):
         p = pt[i]
         pointmap[int(p[0])][int(p[1])] = 255
 
     mls = []
-    for (s, e) in graph.edges():
-        ps = graph[s][e]['pts']
+    for s, e in graph.edges():
+        ps = graph[s][e]["pts"]
         for j in range(len(ps)):
             p = ps[j]
             pointmap[int(p[0])][int(p[1])] = 255
         mls.append(ps)
 
     return mls, pointmap, pt
+
 
 def sample_line_points_without_N(raw_line, init_stride=15):
     lines = []
@@ -66,15 +59,16 @@ def sample_line_points_without_N(raw_line, init_stride=15):
             #     line.append(p)
             #     break
 
-            if (len(ps) - i * stride <= 5):
+            if len(ps) - i * stride <= 5:
                 break
-            if (5 < len(ps) - i * stride <= stride):
+            if 5 < len(ps) - i * stride <= stride:
                 line.append(p)
                 break
             line.append(p)
         line.append(end)
         lines.append(line)
     return lines
+
 
 def sample_skeleton_points(skeletons, N=256, init_stride=15):
     lens = [len(ct) for ct in skeletons]
@@ -105,14 +99,14 @@ def sample_skeleton_points(skeletons, N=256, init_stride=15):
                 continue
             for i in range(1, n_points + 2):
                 p = [int(ps[i * stride][0]), int(ps[i * stride][1])]
-                if (i * stride >= len(ps)):
+                if i * stride >= len(ps):
                     line.append(p)
                     interpolrate_num += 1
                     break
 
-                if (len(ps) - i * stride <= 5):
+                if len(ps) - i * stride <= 5:
                     break
-                if (5 < len(ps) - i * stride <= stride):
+                if 5 < len(ps) - i * stride <= stride:
                     line.append(p)
                     interpolrate_num += 1
                     break
@@ -130,9 +124,11 @@ def calculate_distance(pt1, pt2):
     dis = np.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
     return dis
 
+
 def normalization(data):
     _range = np.max(data) - np.min(data)
     return (data - np.min(data)) / _range
+
 
 def generate_heatmap(gt, size=5):
     gt = 255 - gt
@@ -161,7 +157,8 @@ def merge_junction_nodes(mls, junction_nodes, tolerance=5):
                 count += 1
     return mls_final, count
 
-def remove_junctions(roads_true,junction_node,tolerance=5):
+
+def remove_junctions(roads_true, junction_node, tolerance=5):
     mls = copy.deepcopy(roads_true)
     mls.insert(0, junction_node)
     mls_new = copy.deepcopy(mls)
@@ -190,7 +187,6 @@ def sample_road(img, mask, N=256, init_stride=15, name=None):
     mask[mask != 0] = 1
     mask = np.uint8(mask)
 
-
     ske = skeletonize(mask)
     ske = np.uint8(ske)
     ske[ske > 0] = 255
@@ -198,7 +194,6 @@ def sample_road(img, mask, N=256, init_stride=15, name=None):
     mls = []
     junction_node = []
     if np.max(ske) != 0 and len(np.argwhere(ske > 0)) > 5:
-
         # pixel_graph, coordinates, degrees = skeleton_to_csgraph(ske)
 
         # endpoint_map = np.uint8((degrees == 1) * 255)
@@ -218,16 +213,13 @@ def sample_road(img, mask, N=256, init_stride=15, name=None):
         #     else:
         #         junction_node.append(np.asarray(centroid, dtype=np.float32))
 
-
         # junction_node = np.asarray(junction_node, dtype=np.uint16)
 
         # Kernel to count 8-connected neighbors
-        kernel = np.array([[1, 1, 1],
-                        [1, 0, 1],
-                        [1, 1, 1]], dtype=np.uint8)
+        kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.uint8)
 
         # Convolve to get neighbor counts for each pixel
-        neighbor_map = convolve(ske, kernel, mode='constant', cval=0)
+        neighbor_map = convolve(ske, kernel, mode="constant", cval=0)
 
         # Keep neighbor counts only for actual skeleton pixels
         neighbor_map = neighbor_map * ske
@@ -241,14 +233,13 @@ def sample_road(img, mask, N=256, init_stride=15, name=None):
 
         img_show = img.copy()
         graph = build_sknw(ske)
-        skeletons = [graph[s][e]['pts'] for (s, e) in graph.edges()]
+        skeletons = [graph[s][e]["pts"] for (s, e) in graph.edges()]
 
         skeletons, count = merge_junction_nodes(skeletons, junction_node, tolerance=5)
 
         lens = [len(ct) for ct in skeletons]
         sorted_id = sorted(range(len(lens)), key=lambda k: lens[k], reverse=True)
         skeletons = [skeletons[i] for i in sorted_id]
-
 
         sample_num = N - len(junction_node) - len(endpoints)
         if sample_num > 0:
@@ -306,7 +297,7 @@ def remove_extra_points(raw_contours, N):
         num = len_list[i]
         count += num
         if count >= N:
-            return raw_contours[:(i - 1)]
+            return raw_contours[: (i - 1)]
 
     return raw_contours
 
@@ -323,80 +314,76 @@ def uniformsample(pgtnp_px2, newpnum):
     # we need to remove gt points
     # we simply remove shortest paths
     if pnum > newpnum:
-        edgeidxkeep_k = edgeidxsort_p[pnum - newpnum:]
+        edgeidxkeep_k = edgeidxsort_p[pnum - newpnum :]
         edgeidxsort_k = np.sort(edgeidxkeep_k)
         pgtnp_kx2 = pgtnp_px2[edgeidxsort_k]
         assert pgtnp_kx2.shape[0] == newpnum
         return pgtnp_kx2
     # we need to add gt points
     # we simply add it uniformly
-    else:
-        edgenum = np.round(edgelen_p * newpnum / np.sum(edgelen_p)).astype(np.int32)
-        for i in range(pnum):
-            if edgenum[i] == 0:
-                edgenum[i] = 1
+    edgenum = np.round(edgelen_p * newpnum / np.sum(edgelen_p)).astype(np.int32)
+    for i in range(pnum):
+        if edgenum[i] == 0:
+            edgenum[i] = 1
 
-        # after round, it may has 1 or 2 mismatch
-        edgenumsum = np.sum(edgenum)
-        if edgenumsum != newpnum:
-
-            if edgenumsum > newpnum:
-
-                id = -1
-                passnum = edgenumsum - newpnum
-                while passnum > 0:
-                    edgeid = edgeidxsort_p[id]
-                    if edgenum[edgeid] > passnum:
-                        edgenum[edgeid] -= passnum
-                        passnum -= passnum
-                    else:
-                        passnum -= edgenum[edgeid] - 1
-                        edgenum[edgeid] -= edgenum[edgeid] - 1
-                        id -= 1
-            else:
-                id = -1
+    # after round, it may has 1 or 2 mismatch
+    edgenumsum = np.sum(edgenum)
+    if edgenumsum != newpnum:
+        if edgenumsum > newpnum:
+            id = -1
+            passnum = edgenumsum - newpnum
+            while passnum > 0:
                 edgeid = edgeidxsort_p[id]
-                edgenum[edgeid] += newpnum - edgenumsum
+                if edgenum[edgeid] > passnum:
+                    edgenum[edgeid] -= passnum
+                    passnum -= passnum
+                else:
+                    passnum -= edgenum[edgeid] - 1
+                    edgenum[edgeid] -= edgenum[edgeid] - 1
+                    id -= 1
+        else:
+            id = -1
+            edgeid = edgeidxsort_p[id]
+            edgenum[edgeid] += newpnum - edgenumsum
 
-        assert np.sum(edgenum) == newpnum
+    assert np.sum(edgenum) == newpnum
 
-        psample = []
-        for i in range(pnum):
-            pb_1x2 = pgtnp_px2[i:i + 1]
-            pe_1x2 = pgtnext_px2[i:i + 1]
+    psample = []
+    for i in range(pnum):
+        pb_1x2 = pgtnp_px2[i : i + 1]
+        pe_1x2 = pgtnext_px2[i : i + 1]
 
-            pnewnum = edgenum[i]
-            wnp_kx1 = np.arange(edgenum[i], dtype=np.float32).reshape(-1, 1) / edgenum[i];
+        pnewnum = edgenum[i]
+        wnp_kx1 = np.arange(edgenum[i], dtype=np.float32).reshape(-1, 1) / edgenum[i]
 
-            pmids = pb_1x2 * (1 - wnp_kx1) + pe_1x2 * wnp_kx1
-            psample.append(pmids)
+        pmids = pb_1x2 * (1 - wnp_kx1) + pe_1x2 * wnp_kx1
+        psample.append(pmids)
 
-        psamplenp = np.concatenate(psample, axis=0)
-        return psamplenp
+    psamplenp = np.concatenate(psample, axis=0)
+    return psamplenp
 
-def sample_line_points(raw_lines,init_stride=15,total_num=256):
+
+def sample_line_points(raw_lines, init_stride=15, total_num=256):
     points_count = 1000
     lines = []
     if total_num:
         while points_count > total_num:
             lens = [len(ct) for ct in raw_lines]
-            lens_stride = [l//init_stride for l in lens]
+            lens_stride = [l // init_stride for l in lens]
             if sum(lens_stride) <= total_num:
                 stride = init_stride
             else:
-                percentages = [num/sum(lens) for num in lens]
-                num_points = [np.floor(i*total_num) for i in percentages]
+                percentages = [num / sum(lens) for num in lens]
+                num_points = [np.floor(i * total_num) for i in percentages]
 
                 ids = [idx for idx in range(len(num_points)) if num_points[idx] < 3.0]
-                num_points_extend = [max(3.0,i) for i in num_points]
-                ex_num = sum([num_points_extend[i]-num_points[i] for i in range(len(num_points))])
-                if len(ids):
+                num_points_extend = [max(3.0, i) for i in num_points]
+                ex_num = sum([num_points_extend[i] - num_points[i] for i in range(len(num_points))])
+                if ids:
                     sorted_id = sorted(range(len(num_points_extend)), key=lambda k: lens[k], reverse=True)
                     num_points_extend[sorted_id[0]] -= ex_num
 
-
-                stride = [np.ceil(lens[i]/num_points_extend[i]) for i in range(len(lens))]
-
+                stride = [np.ceil(lens[i] / num_points_extend[i]) for i in range(len(lens))]
 
             lines = sample_line_points_without_N(raw_lines, init_stride=stride)
             lens2 = [len(ct) for ct in lines]
@@ -405,10 +392,10 @@ def sample_line_points(raw_lines,init_stride=15,total_num=256):
     else:
         lines = sample_line_points_without_N(raw_lines, init_stride=init_stride)
 
-
     return lines
 
-def sample_coutours(raw_lines,stride=15):
+
+def sample_coutours(raw_lines, stride=15):
     lines = []
     for i in range(len(raw_lines)):
         # for ps in contours:
@@ -428,7 +415,7 @@ def sample_coutours(raw_lines,stride=15):
             line.append(end)
             continue
         for j in range(1, n_points + 2):
-            if (j * stride_tmp >= len(ps)):
+            if j * stride_tmp >= len(ps):
                 line.append(pre)
                 break
 
@@ -449,33 +436,34 @@ def sample_coutours(raw_lines,stride=15):
     points_count = sum(lens2)
 
     return lines
+
+
 def interpolrate_contours(contours, dense_contours, N=256, stride=20):
     len_list = [len(ct) for ct in contours]
     if sum(len_list) >= N:
         contours = remove_extra_points(contours, N)
         return contours
-    elif N // 2 < sum(len_list) < N:
+    if N // 2 < sum(len_list) < N:
         percentages = [num / sum(len_list) for num in len_list]
         num_points = [np.floor(i * N) for i in percentages]
 
         ids = [idx for idx in range(len(num_points)) if num_points[idx] < 3.0]
         num_points_extend = [max(len_list[i], num_points[i]) for i in range(len(num_points))]
         ex_num = sum([num_points_extend[i] - num_points[i] for i in range(len(num_points))])
-        if len(ids):
+        if ids:
             sorted_id = sorted(range(len(num_points_extend)), key=lambda k: len_list[k], reverse=True)
             num_points_extend[sorted_id[0]] -= ex_num
 
         contours_dense = [uniformsample(contours[j], num_points_extend[j]) for j in range(len(num_points))]
 
         return contours_dense
-    else:
-        total_num = 1000
-        while total_num > N:
-            contours_dense = desify_contours(contours, dense_contours, stride=stride)
-            lens2 = [len(ct) for ct in contours_dense]
-            total_num = sum(lens2)
-            stride += 2
-        return contours_dense
+    total_num = 1000
+    while total_num > N:
+        contours_dense = desify_contours(contours, dense_contours, stride=stride)
+        lens2 = [len(ct) for ct in contours_dense]
+        total_num = sum(lens2)
+        stride += 2
+    return contours_dense
 
 
 def Data_collate_poly(batch):
@@ -487,13 +475,13 @@ def Data_collate_poly(batch):
     polys = []
     names = []
     for im in batch:
-        imgs.append(torch.from_numpy(im['img']))
-        ori_imgs.append(torch.from_numpy(im['ori_img']))
-        heatmap.append(torch.from_numpy(im['heatmap']).unsqueeze(0))
-        mask.append(torch.from_numpy(im['mask']).unsqueeze(0))
-        boundary_mask.append(torch.from_numpy(im['boundary_mask']).unsqueeze(0))
-        polys.append(im['polys'])
-        names.append(im['name'])
+        imgs.append(torch.from_numpy(im["img"]))
+        ori_imgs.append(torch.from_numpy(im["ori_img"]))
+        heatmap.append(torch.from_numpy(im["heatmap"]).unsqueeze(0))
+        mask.append(torch.from_numpy(im["mask"]).unsqueeze(0))
+        boundary_mask.append(torch.from_numpy(im["boundary_mask"]).unsqueeze(0))
+        polys.append(im["polys"])
+        names.append(im["name"])
 
     img_collection = torch.stack(imgs, dim=0)
     ori_img_collection = torch.stack(ori_imgs, dim=0)
@@ -501,10 +489,18 @@ def Data_collate_poly(batch):
     mask_collection = torch.stack(mask, dim=0)
     boudary_mask_collection = torch.stack(boundary_mask, dim=0)
 
-    sample = {'ori_images': ori_img_collection, 'images': img_collection, 'heatmaps': heatmap_collection,
-              'masks': mask_collection, 'boundary_masks': boudary_mask_collection, 'PM_label': [], 'polys': polys,
-              'names': names}
+    sample = {
+        "ori_images": ori_img_collection,
+        "images": img_collection,
+        "heatmaps": heatmap_collection,
+        "masks": mask_collection,
+        "boundary_masks": boudary_mask_collection,
+        "PM_label": [],
+        "polys": polys,
+        "names": names,
+    }
     return sample
+
 
 def Data_collate_road(batch):
     # variables as tensor
@@ -517,14 +513,14 @@ def Data_collate_road(batch):
     boundary_mask = []
     names = []
     for im in batch:
-        imgs.append(torch.from_numpy(im['img']))
-        ori_imgs.append(torch.from_numpy(im['ori_img']))
-        heatmap.append(torch.from_numpy(im['heatmap']).unsqueeze(0))
-        mask.append(torch.from_numpy(im['mask']).unsqueeze(0))
-        boundary_mask.append(torch.from_numpy(im['boundary_mask']).unsqueeze(0))
-        skel_points.append(im['skel_points'])
-        junctions.append(im['junctions'])
-        names.append(im['name'])
+        imgs.append(torch.from_numpy(im["img"]))
+        ori_imgs.append(torch.from_numpy(im["ori_img"]))
+        heatmap.append(torch.from_numpy(im["heatmap"]).unsqueeze(0))
+        mask.append(torch.from_numpy(im["mask"]).unsqueeze(0))
+        boundary_mask.append(torch.from_numpy(im["boundary_mask"]).unsqueeze(0))
+        skel_points.append(im["skel_points"])
+        junctions.append(im["junctions"])
+        names.append(im["name"])
 
     img_collection = torch.stack(imgs, dim=0)
     ori_img_collection = torch.stack(ori_imgs, dim=0)
@@ -532,7 +528,16 @@ def Data_collate_road(batch):
     mask_collection = torch.stack(mask, dim=0)
     boudary_mask_collection = torch.stack(boundary_mask, dim=0)
 
-    sample = {'ori_images': ori_img_collection, 'images': img_collection, 'heatmaps': heatmap_collection,
-              'skel_points': skel_points,'junctions': junctions,
-              'masks': mask_collection, 'boundary_masks': boudary_mask_collection, 'PM_label': [], 'names': names}
+    sample = {
+        "ori_images": ori_img_collection,
+        "images": img_collection,
+        "heatmaps": heatmap_collection,
+        "skel_points": skel_points,
+        "junctions": junctions,
+        "masks": mask_collection,
+        "boundary_masks": boudary_mask_collection,
+        "PM_label": [],
+        "names": names,
+    }
     return sample
+

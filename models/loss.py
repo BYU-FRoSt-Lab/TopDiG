@@ -1,6 +1,7 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
+
 
 class Weighted_BCELoss(nn.Module):
     def __init__(self, weight=None):
@@ -19,27 +20,29 @@ class Weighted_BCELoss(nn.Module):
         loss = nn.BCEWithLogitsLoss(weight=weight, size_average=True)(prediction, target.float())
         return loss
 
+
 def cross_entropy_loss_RCF(prediction, labelf):
     label = labelf.long()
     mask = labelf.float()
-    num_positive = torch.sum((label==1).float()).float()
-    num_negative = torch.sum((label==0).float()).float()
+    num_positive = torch.sum((label == 1).float()).float()
+    num_negative = torch.sum((label == 0).float()).float()
 
     mask[label == 1] = 1.0 * num_negative / (num_positive + num_negative)
     mask[label == 0] = 1.1 * num_positive / (num_positive + num_negative)
     mask[label == 2] = 0
-    cost = F.binary_cross_entropy_with_logits(
-            prediction.float(),labelf.float(), weight=mask, reduction='mean')
+    cost = F.binary_cross_entropy_with_logits(prediction.float(), labelf.float(), weight=mask, reduction="mean")
     return torch.mean(cost)
 
+
 def dice_loss_func(input, target):
-    smooth = 1.
+    smooth = 1.0
     n = input.size(0)
     iflat = input.view(n, -1)
     tflat = target.view(n, -1)
     intersection = (iflat * tflat).sum(1)
-    loss = 1 - ((2. * intersection + smooth) / (iflat.sum(1) + tflat.sum(1) + smooth))
+    loss = 1 - ((2.0 * intersection + smooth) / (iflat.sum(1) + tflat.sum(1) + smooth))
     return loss.mean()
+
 
 def HDNet_RCF_edge_criterion(inputs, target):
     loss1 = cross_entropy_loss_RCF(inputs, target)

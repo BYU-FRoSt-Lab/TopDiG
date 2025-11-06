@@ -5,11 +5,15 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 import time
 import warnings
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+
 from models.loss import HDNet_RCF_edge_criterion, cross_entropy_loss_RCF
 from utils.metric_utils import AverageMeter, points_detection_acc, update_acc
-from utils.poly_utils import 
-from utils.setting_utils import *
-from utils.visualize import *
+from utils.poly_utils import getPoints
+from utils.setting_utils import save_pretrain_model
+from utils.visualize import visualize_keypoints, visualize_sideouts
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

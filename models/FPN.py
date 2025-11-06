@@ -1,13 +1,12 @@
-import torch
-from torch import nn
-import torch.nn.functional as F
-import numpy as np
-from torchinfo import summary
-from thop import profile
-from torch.autograd import Variable
 from functools import partial
 
+import torch
+import torch.nn.functional as F
+from thop import profile
+from torch import nn
+
 nonlinearity = partial(F.relu, inplace=True)
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -25,7 +24,7 @@ class Bottleneck(nn.Module):
         if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
+                nn.BatchNorm2d(self.expansion * planes),
             )
 
     def forward(self, x):
@@ -35,6 +34,7 @@ class Bottleneck(nn.Module):
         out += self.shortcut(x)
         out = F.relu(out)
         return out
+
 
 class Dblock(nn.Module):
     def __init__(self, channel):
@@ -58,19 +58,21 @@ class Dblock(nn.Module):
         out = x + dilate1_out + dilate2_out + dilate3_out + dilate4_out  # + dilate5_out
         return out
 
+
 class DetectionBranch(nn.Module):
     def __init__(self):
-        super(DetectionBranch,self).__init__()
+        super(DetectionBranch, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=1,stride=1,padding=0,bias=True),
+            nn.Conv2d(128, 128, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 1, kernel_size=1,stride=1,padding=0,bias=True)
+            nn.Conv2d(128, 1, kernel_size=1, stride=1, padding=0, bias=True),
         )
 
-    def forward(self,x):
+    def forward(self, x):
         x = self.conv(x)
         return x
+
 
 class FPN(nn.Module):
     def __init__(self, block=Bottleneck, num_blocks=[2, 4, 23, 3], n_channels=3, n_classes=1, params=[3, 1100, 1100]):
@@ -89,9 +91,9 @@ class FPN(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
 
-        #low_level sideout layers
+        # low_level sideout layers
         self.side1 = nn.Sequential(
-            nn.Conv2d(256,128,kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
         )
@@ -144,13 +146,15 @@ class FPN(nn.Module):
         return nn.Sequential(*layers)
 
     def _upsample(self, x, h, w):
-        return F.interpolate(x, size=(h, w), mode='bilinear', align_corners=True)
+        return F.interpolate(x, size=(h, w), mode="bilinear", align_corners=True)
 
     def _upsample_add(self, x, y):
-        '''Upsample and add two feature maps.
+        """Upsample and add two feature maps.
+
         Args:
           x: (Variable) top feature map to be upsampled.
           y: (Variable) lateral feature map.
+
         Returns:
           (Variable) added feature map.
         Note in PyTorch, when input size is odd, the upsampled feature map
@@ -161,9 +165,9 @@ class FPN(nn.Module):
         conv2d feature map size: [N,_,8,8] ->
         upsampled feature map size: [N,_,16,16]
         So we choose bilinear upsample which supports arbitrary output sizes.
-        '''
+        """
         _, _, H, W = y.size()
-        return F.upsample(x, size=(H, W), mode='bilinear') + y
+        return F.upsample(x, size=(H, W), mode="bilinear") + y
 
     def forward(self, x):
         _, _, h, w = x.size()
@@ -175,7 +179,6 @@ class FPN(nn.Module):
         c4 = self.layer3(c3)
         c5 = self.layer4(c4)
 
-
         # Top-down
         p5 = self.toplayer(c5)
         p4 = self._upsample_add(p5, self.latlayer1(c4))
@@ -185,7 +188,6 @@ class FPN(nn.Module):
         p4 = self.smooth1(p4)
         p3 = self.smooth2(p3)
         p2 = self.smooth3(p2)
-
 
         # 256->256
         s5 = self._upsample(F.relu(self.gn12(self.conv2(p5))), h, w)
@@ -204,17 +206,18 @@ class FPN(nn.Module):
 
         s2 = self._upsample(F.relu(self.gn11(self.semantic_branch(p2))), h, w)
 
-        output1_feature = (s2 + s3 + s4 + s5)
+        output1_feature = s2 + s3 + s4 + s5
         output1 = self._upsample(self.output_layer1(F.relu(output1_feature)), h, w)
 
+        return output1, output1_feature
 
-        return output1,output1_feature
 
 if __name__ == "__main__":
-    input = torch.randn(1,3,512,512)
+    input = torch.randn(1, 3, 512, 512)
     model = FPN()
     flops, params = profile(model, inputs=(input,))
-    print('FLOPs = ' + str(flops / 1024 ** 3) + 'G')
-    print('Params = ' + str(params / 1024 ** 2) + 'M')
+    print("FLOPs = " + str(flops / 1024**3) + "G")
+    print("Params = " + str(params / 1024**2) + "M")
     # output_seg,out_heatmap = model(input)
     # print(output_seg.shape,out_heatmap.shape)
+

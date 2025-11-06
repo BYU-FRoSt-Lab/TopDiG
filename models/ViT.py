@@ -1,18 +1,15 @@
-"""
-Adapted from https://github.com/lukemelas/simple-bert
-"""
+"""Adapted from https://github.com/lukemelas/simple-bert"""
 
 import numpy as np
-from torch import nn
-from torch import Tensor
-from torch.nn import functional as F
 import torch
-from timm.layers import use_fused_attn
 from pytorch_pretrained_vit import ViT
+from timm.layers import use_fused_attn
+from torch import nn
+from torch.nn import functional as F
 
 
 def split_last(x, shape):
-    "split the last dimension to given shape"
+    """Split the last dimension to given shape"""
     shape = list(shape)
     assert shape.count(-1) <= 1
     if -1 in shape:
@@ -21,7 +18,7 @@ def split_last(x, shape):
 
 
 def merge_last(x, n_dims):
-    "merge the last n_dims to a dimension"
+    """Merge the last n_dims to a dimension"""
     s = x.size()
     assert n_dims > 1 and n_dims < len(s)
     return x.view(*s[:-n_dims], -1)
@@ -81,14 +78,12 @@ class MultiHeadedSelfAttention(nn.Module):
 
     #     # self.scores = scores
     #     return h
-    
+
     def forward(self, x, mask=None):
-        """
-        x, q(query), k(key), v(value) : (B(batch_size), S(seq_len), D(dim))
+        """x, q(query), k(key), v(value) : (B(batch_size), S(seq_len), D(dim))
         mask : (B(batch_size) x S(seq_len))
         * split D(dim) into (H(n_heads), W(width of head)) ; D = H * W
         """
-
         # (B, S, D) -proj-> (B, S, D) -split-> (B, S, H, W) -trans-> (B, H, S, W)
         q, k, v = self.proj_q(x), self.proj_k(x), self.proj_v(x)
 
@@ -125,12 +120,11 @@ class PositionWiseFeedForward(nn.Module):
 
 
 def MLP(channels: list, do_bn=True):
-    """ Multi-layer perceptron """
+    """Multi-layer perceptron"""
     n = len(channels)
     layers = []
     for i in range(1, n):
-        layers.append(
-            nn.Linear(channels[i - 1], channels[i]))
+        layers.append(nn.Linear(channels[i - 1], channels[i]))
         if i < (n - 1):
             if do_bn:
                 layers.append(nn.LayerNorm(channels[i]))
@@ -169,8 +163,7 @@ class transformer(nn.Module):
     def __init__(self, num_layers=12, dim=768, num_heads=12, ff_dim=3072, dropout=0.1):
         super(transformer, self).__init__()
         ff_dim = dim * 4
-        self.blocks = nn.ModuleList([
-            Block(dim, num_heads, ff_dim, dropout) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList([Block(dim, num_heads, ff_dim, dropout) for _ in range(num_layers)])
 
     def forward(self, x, mask=None):
         for block in self.blocks:
@@ -183,6 +176,6 @@ if __name__ == "__main__":
     image = torch.randn(2, 3, 512, 512)
     descriptors = torch.randn(2, 256, 768)
     vertices_pred = torch.randn(2, 256, 2)
-    model = ViT('B_16_imagenet1k', pretrained=False)
+    model = ViT("B_16_imagenet1k", pretrained=False)
     AttenGNN = transformer(num_layers=6, num_heads=6, dim=768)
     outputs = AttenGNN(descriptors)

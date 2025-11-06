@@ -1,19 +1,18 @@
-"""
-Adapted from https://github.com/lukemelas/simple-bert
-"""
+"""Adapted from https://github.com/lukemelas/simple-bert."""
 
 import numpy as np
-from torch import nn
-from torch import Tensor
-from torch.nn import functional as F
 import torch
-from einops import rearrange, repeat
+from torch import nn
+from torch.nn import functional as F
+
+from models.swin_transformer import Swin_B_Weights, swin_b
+
 # from pytorch_pretrained_vit import ViT
 from models.TCND import ConvBlock, DetectionBranch, LocationAdaptiveLearner
-from models.swin_transformer import swin_b, Swin_B_Weights
+
 
 def split_last(x, shape):
-    "split the last dimension to given shape"
+    """Split the last dimension to given shape"""
     shape = list(shape)
     assert shape.count(-1) <= 1
     if -1 in shape:
@@ -22,7 +21,7 @@ def split_last(x, shape):
 
 
 def merge_last(x, n_dims):
-    "merge the last n_dims to a dimension"
+    """Merge the last n_dims to a dimension"""
     s = x.size()
     assert n_dims > 1 and n_dims < len(s)
     return x.view(*s[:-n_dims], -1)
@@ -41,12 +40,10 @@ class MultiHeadedSelfAttention(nn.Module):
         self.scores = None  # for visualization
 
     def forward(self, x, mask):
-        """
-        x, q(query), k(key), v(value) : (B(batch_size), S(seq_len), D(dim))
+        """x, q(query), k(key), v(value) : (B(batch_size), S(seq_len), D(dim))
         mask : (B(batch_size) x S(seq_len))
         * split D(dim) into (H(n_heads), W(width of head)) ; D = H * W
         """
-
         # (B, S, D) -proj-> (B, S, D) -split-> (B, S, H, W) -trans-> (B, H, S, W)
         q, k, v = self.proj_q(x), self.proj_k(x), self.proj_v(x)
 
@@ -83,12 +80,11 @@ class PositionWiseFeedForward(nn.Module):
 
 
 def MLP(channels: list, do_bn=True):
-    """ Multi-layer perceptron """
+    """Multi-layer perceptron"""
     n = len(channels)
     layers = []
     for i in range(1, n):
-        layers.append(
-            nn.Linear(channels[i - 1], channels[i]))
+        layers.append(nn.Linear(channels[i - 1], channels[i]))
         if i < (n - 1):
             if do_bn:
                 layers.append(nn.LayerNorm(channels[i]))
@@ -127,8 +123,7 @@ class transformer(nn.Module):
     def __init__(self, num_layers=12, dim=768, num_heads=12, ff_dim=3072, dropout=0.1):
         super(transformer, self).__init__()
         ff_dim = dim * 4
-        self.blocks = nn.ModuleList([
-            Block(dim, num_heads, ff_dim, dropout) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList([Block(dim, num_heads, ff_dim, dropout) for _ in range(num_layers)])
 
     def forward(self, x, mask=None, return_reprs=False):
         outputs = []
@@ -137,8 +132,8 @@ class transformer(nn.Module):
             outputs.append(x)
         if return_reprs:
             return outputs
-        else:
-            return x
+        return x
+
 
 def as_tuple(x):
     return x if isinstance(x, tuple) else (x, x)
@@ -157,10 +152,20 @@ class PositionalEmbedding1D(nn.Module):
 
 
 class TCSwin(nn.Module):
-    def __init__(self, n_class=1, image_size=320, patches=8,
-                 num_layers=12, in_channels=3, dim=768,
-                 num_heads=12, ff_dim=3072, dropout=0.1,
-                 positional_embedding='1d', return_reprs=True):
+    def __init__(
+        self,
+        n_class=1,
+        image_size=320,
+        patches=8,
+        num_layers=12,
+        in_channels=3,
+        dim=768,
+        num_heads=12,
+        ff_dim=3072,
+        dropout=0.1,
+        positional_embedding="1d",
+        return_reprs=True,
+    ):
         super(TCSwin, self).__init__()
         self.image_size = image_size
         self.return_reprs = return_reprs
@@ -170,16 +175,16 @@ class TCSwin(nn.Module):
         h, w = as_tuple(image_size)  # image sizes
         fh, fw = as_tuple(patches)  # patch sizes
         gh, gw = h // fh, w // fw  # number of patches
-        self.patch_emd = (gh,gw)
+        self.patch_emd = (gh, gw)
         seq_len = gh * gw
         # Patch embedding
         self.patch_embedding = nn.Conv2d(in_channels, dim, kernel_size=(fh, fw), stride=(fh, fw))
 
         # Positional embedding
-        if positional_embedding.lower() == '1d':
+        if positional_embedding.lower() == "1d":
             self.positional_embedding = PositionalEmbedding1D(seq_len, dim)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
 
         # Transformer
         # self.transformer = transformer(num_layers=num_layers, dim=dim, num_heads=num_heads,
@@ -188,34 +193,44 @@ class TCSwin(nn.Module):
 
         self.ada_learner = LocationAdaptiveLearner(n_class, n_class * 4, n_class * 4, norm_layer=nn.BatchNorm2d)
 
-        self.side1 = nn.Sequential(nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),
-                                    nn.BatchNorm2d(128),
-                                    nn.ReLU(),
-                                    nn.ConvTranspose2d(128, 1, 4, stride=2, padding=1))
+        self.side1 = nn.Sequential(
+            nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 1, 4, stride=2, padding=1),
+        )
 
-        self.side2 = nn.Sequential(nn.ConvTranspose2d(256, 256, 8, stride=4, padding=2),
-                                   nn.BatchNorm2d(256),
-                                   nn.ReLU(),
-                                   nn.ConvTranspose2d(256, 1, 4, stride=2, padding=1))
+        self.side2 = nn.Sequential(
+            nn.ConvTranspose2d(256, 256, 8, stride=4, padding=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, 1, 4, stride=2, padding=1),
+        )
 
-        self.side3 = nn.Sequential(nn.ConvTranspose2d(512, 512, 8, stride=4, padding=2),
-                                   nn.BatchNorm2d(512),
-                                   nn.ConvTranspose2d(512, 1, 8, stride=4, padding=2))
-        self.side5 = nn.Sequential(nn.ConvTranspose2d(1024, 512, 8, stride=4, padding=2),
-                                   nn.BatchNorm2d(512),
-                                   nn.ReLU(),
-                                   nn.ConvTranspose2d(512, 256, 8, stride=4, padding=2),
-                                   nn.BatchNorm2d(256),
-                                   nn.ReLU(),
-                                   nn.ConvTranspose2d(256, n_class, 4, stride=2, padding=1))
+        self.side3 = nn.Sequential(
+            nn.ConvTranspose2d(512, 512, 8, stride=4, padding=2),
+            nn.BatchNorm2d(512),
+            nn.ConvTranspose2d(512, 1, 8, stride=4, padding=2),
+        )
+        self.side5 = nn.Sequential(
+            nn.ConvTranspose2d(1024, 512, 8, stride=4, padding=2),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.ConvTranspose2d(512, 256, 8, stride=4, padding=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, n_class, 4, stride=2, padding=1),
+        )
 
-        self.side5_w = nn.Sequential(nn.ConvTranspose2d(1024, 512, 8, stride=4, padding=2),
-                                     nn.BatchNorm2d(512),
-                                     nn.ReLU(),
-                                     nn.ConvTranspose2d(512, 256, 8, stride=4, padding=2),
-                                     nn.BatchNorm2d(256),
-                                     nn.ReLU(),
-                                     nn.ConvTranspose2d(256, n_class*4, 4, stride=2, padding=1))
+        self.side5_w = nn.Sequential(
+            nn.ConvTranspose2d(1024, 512, 8, stride=4, padding=2),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.ConvTranspose2d(512, 256, 8, stride=4, padding=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, n_class * 4, 4, stride=2, padding=1),
+        )
 
         self.featureconv1 = ConvBlock(self.nclass * 4, 64)
         self.featureconv2 = ConvBlock(64, 64)
@@ -224,20 +239,23 @@ class TCSwin(nn.Module):
 
         # Initialize weights
         self.init_weights()
+
     @torch.no_grad()
     def init_weights(self):
         def _init(m):
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(
-                    m.weight)  # _trunc_normal(m.weight, std=0.02)  # from .initialization import _trunc_normal
-                if hasattr(m, 'bias') and m.bias is not None:
+                    m.weight
+                )  # _trunc_normal(m.weight, std=0.02)  # from .initialization import _trunc_normal
+                if hasattr(m, "bias") and m.bias is not None:
                     nn.init.normal_(m.bias, std=1e-6)  # nn.init.constant(m.bias, 0)
 
         self.apply(_init)
         # nn.init.constant_(self.fc.weight, 0)
         # nn.init.constant_(self.fc.bias, 0)
-        nn.init.normal_(self.positional_embedding.pos_embedding,
-                        std=0.02)  # _trunc_normal(self.positional_embedding.pos_embedding, std=0.02)
+        nn.init.normal_(
+            self.positional_embedding.pos_embedding, std=0.02
+        )  # _trunc_normal(self.positional_embedding.pos_embedding, std=0.02)
         # nn.init.constant_(self.class_token, 0)
 
     def forward(self, x):
@@ -252,18 +270,18 @@ class TCSwin(nn.Module):
         c1, c2, c3, c5 = vis[0], vis[1], vis[2], vis[-1]
         side1 = self.side1(c1)  # (N, 1, H, W)
         side2 = self.side2(c2)  # (N, 1, H, W)
-        side2 = F.interpolate(side2, (h, w), mode='bilinear')
+        side2 = F.interpolate(side2, (h, w), mode="bilinear")
         side3 = self.side3(c3)  # (N, 1, H, W)
-        side3 = F.interpolate(side3, (h, w), mode='bilinear')
+        side3 = F.interpolate(side3, (h, w), mode="bilinear")
         side5 = self.side5(c5)  # (N, nclass, H, W)
-        side5 = F.interpolate(side5, (h, w), mode='bilinear')
+        side5 = F.interpolate(side5, (h, w), mode="bilinear")
         side5_w = self.side5_w(c5)  # (N, nclass*4, H, W)
-        side5_w = F.interpolate(side5_w, (h, w), mode='bilinear')
+        side5_w = F.interpolate(side5_w, (h, w), mode="bilinear")
 
         slice5 = side5[:, 0:1, :, :]  # (N, 1, H, W)
         fuse = torch.cat((slice5, side1, side2, side3), 1)
         for i in range(side5.size(1) - 1):
-            slice5 = side5[:, i + 1:i + 2, :, :]  # (N, 1, H, W)
+            slice5 = side5[:, i + 1 : i + 2, :, :]  # (N, 1, H, W)
             fuse = torch.cat((fuse, slice5, side1, side2, side3), dim=1)  # (N, nclass*4, H, W)
 
         ada_weights = self.ada_learner(side5_w)  # (N, nclass, 4, H, W)
@@ -278,7 +296,6 @@ class TCSwin(nn.Module):
         fuse = torch.sum(fuse, 2)  # (N, nclass, H, W)
 
         return [side1, side2, side3, side5, fuse], fuse_feature
-
 
 
 if __name__ == "__main__":
