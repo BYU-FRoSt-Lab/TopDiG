@@ -4,8 +4,8 @@
     "pretrain": 0,
     "infer": 1,
     "infer_eval": 0,
-    "save_shp": 0,
-    "save_seg": 0,
+    "save_shp": 1,
+    "save_seg": 1,
     "evaluate": 0,
     "epoch_num": 100,
     "dataset_name": "Massachusetts",
@@ -18,14 +18,14 @@
   "Paths": {
     "TrainRoot": "/root/autodl-tmp/Datasets/Massachusetts/cropped300/train",
     "ValRoot": "/root/autodl-tmp/Datasets/Massachusetts/cropped300/valid",
-    "TestRoot":"/root/autodl-tmp/Datasets/Massachusetts/cropped300/valid/image",
+    "TestRoot":"weights/tiff/byu/tiles",
     "TestLabelRoot": "/root/autodl-tmp/Datasets/Massachusetts/cropped300/valid/binary_map",
-    "SaveRoot": "/root/autodl-tmp/Datasets/Massachusetts/cropped300/valid/seg_preds",
+    "SaveRoot": "weights/output/byu",
     "records_filename": "Massachusetts300_TCND_320pt_bs16_Gw91",
     "pretrained_Swin_weight_path":"/root/autodl-tmp/Projects/checkpoints/swin_b-68c6b09e.pth",
-    "pretrained_ViT_weight_path": "/root/autodl-tmp/Projects/checkpoints/B_16.pth",
-    "pretrained_detection_weight_path": "/root/autodl-tmp/Projects/TopDiG/records/Massachusetts300_TCND_320pt_bs16_Gw91/weights/points_epoch46_valLoss_0.00717_IoU_77.8052_ptloss_0.0068.pkl",
-    "pretrained_match_weight_path": "/root/autodl-tmp/Projects/TopDiG/records/Massachusetts300_TCND_320pt_bs16_Gw91/weights/connection_epoch46_valLoss_0.00717_IoU_77.8052_matchloss_0.00036.pkl"
+    "pretrained_ViT_weight_path": "weights/vit_b_16-c867db91.pth",
+    "pretrained_detection_weight_path": "weights/points_best.pkl",
+    "pretrained_match_weight_path": "weights/connection_best.pkl"
   },
   "Hyper": {
     "batch_size": 16,

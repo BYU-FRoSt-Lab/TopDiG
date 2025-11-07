@@ -95,7 +95,7 @@ def build_roots(configs):
 
 
 def load_model(weight_dir, model):
-    pretext_model = torch.load(weight_dir)
+    pretext_model = torch.load(weight_dir, weights_only=False, map_location=device)
     model_dict = model.state_dict()
     state_dict = {k: v for k, v in pretext_model.items() if k in model_dict.keys()}
     model_dict.update(state_dict)
@@ -104,7 +104,7 @@ def load_model(weight_dir, model):
 
 
 def load_ckpt(weight_dir, model):
-    pre_weight = torch.load(weight_dir)
+    pre_weight = torch.load(weight_dir, weights_only=False, map_location=device)
     new_pre_weight = OrderedDict()
     # pre_weight =torch.jit.load(resume)
     model_dict = model.state_dict()
@@ -141,7 +141,7 @@ def load_ckpt(weight_dir, model):
 
 
 def load_swin_b_ckpt_for_TCSwin(weight_dir, model, load_range=[3, -43]):
-    ckpt1 = torch.load(weight_dir)
+    ckpt1 = torch.load(weight_dir, weights_only=False, map_location=device)
     ckpt2 = model.state_dict()
     kl1 = list(ckpt1.keys())
     for i, k in enumerate(list(ckpt2.keys())[load_range[0] : load_range[1]]):
@@ -153,7 +153,7 @@ def load_swin_b_ckpt_for_TCSwin(weight_dir, model, load_range=[3, -43]):
 
 
 def load_swin_b_ckpt(weight_dir, model, load_key="backbone"):
-    pre_weight = torch.load(weight_dir)
+    pre_weight = torch.load(weight_dir, weights_only=False, map_location=device)
     model_dict = model.state_dict()
     pre_weight_keys = list(pre_weight.keys())
     backbone_keys = [k for k in model_dict if load_key in k]

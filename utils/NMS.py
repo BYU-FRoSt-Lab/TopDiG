@@ -1,26 +1,24 @@
 import numpy as np
-import cv2 as cv
 import torch
 import torch.nn.functional as F
-from scipy.ndimage.filters import maximum_filter
-from scipy.ndimage.morphology import generate_binary_structure, binary_erosion
-from scipy.cluster.hierarchy import fclusterdata
 
-def gpu_NMS(pointmap, score=None, N=None,gap=10):
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def gpu_NMS(pointmap, score=None, N=None, gap=10):
     scoremap = pointmap.copy()
     # print(pointmap.shape)#(1024, 1024)
     pointmap = torch.from_numpy(pointmap)  # torch.Size([1024, 1024])
-    pointmap = pointmap.cuda()
+    if device.type == "cuda":
+        pointmap = pointmap.cuda()
     pointmap = pointmap.unsqueeze(0)  # torch.Size([1, 1024, 1024])
     pointmap = pointmap.unsqueeze(0)  # torch.Size([1, 1, 1024, 1024])
 
-
     max_pointmap = F.max_pool2d(pointmap, kernel_size=9, stride=1, padding=4)  # torch.Size([1, 1, 1024, 1024])
-
 
     pointmap = pointmap[0, 0, :, :].data.cpu().numpy()
     max_pointmap = max_pointmap[0, 0, :, :].data.cpu().numpy()  # (1024, 1024)
-    point_index = (max_pointmap == pointmap)  # (1024, 1024)
+    point_index = max_pointmap == pointmap  # (1024, 1024)
 
     pointmap = point_index * pointmap
 
@@ -28,7 +26,7 @@ def gpu_NMS(pointmap, score=None, N=None,gap=10):
     if N and not score:
         ro = 2
         while len(Nodes) < N:
-            new_N = int(N*ro)
+            new_N = int(N * ro)
             index1d = np.argpartition(pointmap.ravel(), -new_N)[-new_N:]
             index2d = np.unravel_index(index1d, pointmap.shape)
             NMS_Points = index2d
@@ -71,52 +69,49 @@ def gpu_NMS(pointmap, score=None, N=None,gap=10):
             Nodes = np.stack([Nodes[i] for i in sorted_id])
             Nodes = Nodes[:N]
             node_len = N
-        return Nodes,node_len
-
-
+        return Nodes, node_len
 
     if not N and not score:
-        print('Must provide N or score!')
+        print("Must provide N or score!")
         exit(1)
-
-
 
 
 def NMS(output):
     points = []
     point_map = np.zeros(output.shape, np.uint8)
     h, w = output.shape
-    for i in range(0, h):
-        for j in range(0, w):
-            if (output[i][j] > 40):
+    for i in range(h):
+        for j in range(w):
+            if output[i][j] > 40:
                 max = 0
                 for m in range(-10, 10):
                     for n in range(-10, 10):
                         y = i + m
                         x = j + n
-                        if (x >= 0 and x < w and y >= 0 and y < h):
-                            if (max < (output[y][x])):
+                        if x >= 0 and x < w and y >= 0 and y < h:
+                            if max < (output[y][x]):
                                 max = output[y][x]
 
-                if (output[i][j] >= (max)):
+                if output[i][j] >= (max):
                     points.append([float(j), float(i)])
 
     NMS_Point = py_cpu_nms(points, 10)
-    for i in range(0, len(NMS_Point)):
+    for i in range(len(NMS_Point)):
         x = int(NMS_Point[i][0])
         y = int(NMS_Point[i][1])
         point_map[y][x] = 255
     return point_map, NMS_Point
+
 
 def py_cpu_nms(points, thresh):
     """Pure Python NMS baseline."""
     # (313, 2)[[394 0],[102 3],[469 3]   ]
     points = np.array(points)
 
-    if (len(points) > 0):
+    if len(points) > 0:
         x = np.array(points[:, 0])  # (313,)
         y = np.array(points[:, 1])  # (313,)
-        order = np.array(range(0, len(x)))  # (313,)[0 1 2 3 4 5 6 7 8 9   ]
+        order = np.array(range(len(x)))  # (313,)[0 1 2 3 4 5 6 7 8 9   ]
 
         NMS_Point = []
         while len(order) > 0:
@@ -133,7 +128,5 @@ def py_cpu_nms(points, thresh):
 
         return NMS_Point
 
-    if (len(points) <= 0):
+    if len(points) <= 0:
         return []
-
-

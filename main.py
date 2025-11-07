@@ -27,7 +27,7 @@ from solvers.pretrain_trainer import Train_TCND, Val_TCND
 from solvers.train import run_train
 from solvers.valid import run_eval, run_val
 from utils.pytorchtools import EarlyStopping
-from utils.setting_utils import build_roots, load_config, load_weight, setup_seed, to_gpu
+from utils.setting_utils import build_roots, load_config, load_weight, setup_seed
 from utils.summary import LogSummary, make_print_to_file
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,7 +93,7 @@ def main(args):
 
         args = load_weight(args)
 
-        args.detection_model = to_gpu(args, args.detection_model, mode="DP")
+        # args.detection_model = to_gpu(args, args.detection_model, mode="DP")
 
         args.detection_loss_function = torch.nn.MSELoss()
         args.optimizer_detection = torch.optim.Adam(
@@ -153,8 +153,8 @@ def main(args):
             )
 
         args = load_weight(args)
-        args.detection_model = to_gpu(args, args.detection_model, mode="DP")
-        args.match_model = to_gpu(args, args.match_model, mode="DP")
+        # args.detection_model = to_gpu(args, args.detection_model, mode="DP")
+        # args.match_model = to_gpu(args, args.match_model, mode="DP")
 
         if configs["Experiment"]["infer"]:
             run_inference(args)

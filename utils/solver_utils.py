@@ -2,13 +2,27 @@ import math
 import time
 
 import cv2
+import networkx as nx
 import numpy as np
+import scipy
 import torch
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 from skimage.draw import polygon2mask
 from torch.cuda.amp import autocast
 from tqdm import tqdm
+
+from utils.poly_utils import (
+    compose_DiGraph,
+    coord_region2full,
+    get_lines,
+    get_polygons,
+    getPoints,
+    joinPatchNodes,
+    update_graph_nodes_pos,
+)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def draw_poly(mask, poly):
@@ -124,10 +138,11 @@ def predict_heatmap_WithOverlap_simple(args, img, feature_dim=64, patch_size=512
                 ]
             tmp_img = np.array(tmp_img, np.float32).transpose(2, 0, 1) / 255.0
             tmp_img = torch.from_numpy(tmp_img).unsqueeze(0)
-            tmp_img = tmp_img.cuda()
+            if device == torch.device("cuda"):
+                tmp_img = tmp_img.cuda()
 
             with torch.no_grad():
-                # tmp_img = tmp_img.cuda().unsqueeze(0)
+                # tmp_img   = tmp_img.cuda().unsqueeze(0)
                 with autocast():
                     heatmap_pred, feature_map = args.detection_model(tmp_img)
 
@@ -223,7 +238,8 @@ def predict_heatmap_WithOverlap_weight(args, img, feature_dim=64, patch_size=512
         tmp_img = img[bbox[0] : bbox[2], bbox[1] : bbox[3]]
         tmp_img = np.array(tmp_img, np.float32).transpose(2, 0, 1) / 255.0
         tmp_img = torch.from_numpy(tmp_img).unsqueeze(0)
-        tmp_img = tmp_img.cuda()
+        if device == torch.device("cuda"):
+            tmp_img = tmp_img.cuda()
         # Detect nodes
         with torch.no_grad():
             with autocast():
@@ -263,7 +279,8 @@ def predict_poly_graph_WithOverlap_simple(args, img, patch_size=512, intersect_a
         ori_img = tmp_img.copy()
         tmp_img = np.array(tmp_img, np.float32).transpose(2, 0, 1) / 255.0
         tmp_img = torch.from_numpy(tmp_img).unsqueeze(0)
-        tmp_img = tmp_img.cuda()
+        if device == torch.device("cuda"):
+            tmp_img = tmp_img.cuda()
         # Detect nodes
         model_start_time = time.time()
         with torch.no_grad():
@@ -325,7 +342,8 @@ def predict_line_graph_WithOverlap_simple(args, img, patch_size=512, intersect_a
         ori_img = tmp_img.copy()
         tmp_img = np.array(tmp_img, np.float32).transpose(2, 0, 1) / 255.0
         tmp_img = torch.from_numpy(tmp_img).unsqueeze(0)
-        tmp_img = tmp_img.cuda()
+        if device == torch.device("cuda"):
+            tmp_img = tmp_img.cuda()
         # Detect nodes
         model_start_time = time.time()
         with torch.no_grad():

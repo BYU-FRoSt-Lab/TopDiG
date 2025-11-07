@@ -1,20 +1,20 @@
-import cv2
-import numpy as np
-import cv2 as cv
 import glob
 import os
-from skimage import morphology, io
-import gdal
+
+import cv2 as cv
+import numpy as np
+from osgeo import gdal
+from skimage import io
 from tqdm import tqdm
 
-refer_dir = r'G:\Datasets\GID\water\cropped512\nozero_valid\binary_map'
+refer_dir = r"G:\Datasets\GID\water\cropped512\nozero_valid\binary_map"
 
 
 def read_tif(fileName):
     dataset = gdal.Open(fileName)
     if dataset == None:
         print(fileName + "文件无法打开")
-        return
+        return None
     im_width = dataset.RasterXSize  # 栅格矩阵的列数
     im_height = dataset.RasterYSize  # 栅格矩阵的行数
     im_bands = dataset.RasterCount  # 波段数
@@ -44,46 +44,47 @@ def make_Patch(Stride, Patch_Size, Image_Path, Lable_Path, Image_Save_Path, Labe
         # img = cv.imread(imgpath)
         img = read_tif(imgpath)
         h, w, _ = img.shape
-        basename = os.path.basename(imgpath).split('.')[0]
-        labelpath = os.path.join(Lable_Path, '{}.tif'.format(basename))
+        basename = os.path.basename(imgpath).split(".")[0]
+        labelpath = os.path.join(Lable_Path, f"{basename}.tif")
         label = cv.imread(labelpath, 0)
-        for y in range(0, (h - Patch_Size) // Stride + 2):
-            for x in range(0, (w - Patch_Size) // Stride + 2):
-                basename_patch = basename + '_' + str(y) + '_' + str(x) + '.tif'
-                img_save = os.path.join(Image_Save_Path, basename + '_' + str(y) + '_' + str(x) + '.tif')
-                label_save = os.path.join(Label_Save_Path, basename + '_' + str(y) + '_' + str(x) + '.tif')
+        for y in range((h - Patch_Size) // Stride + 2):
+            for x in range((w - Patch_Size) // Stride + 2):
+                basename_patch = basename + "_" + str(y) + "_" + str(x) + ".tif"
+                img_save = os.path.join(Image_Save_Path, basename + "_" + str(y) + "_" + str(x) + ".tif")
+                label_save = os.path.join(Label_Save_Path, basename + "_" + str(y) + "_" + str(x) + ".tif")
                 if basename_patch in label_patch_Lists:
                     continue
-                if (y * Stride + Patch_Size <= h and x * Stride + Patch_Size <= w):
-                    Patch = img[y * Stride:y * Stride + Patch_Size, x * Stride:x * Stride + Patch_Size]
-                    labelPatch = label[y * Stride:y * Stride + Patch_Size, x * Stride:x * Stride + Patch_Size]
+                if y * Stride + Patch_Size <= h and x * Stride + Patch_Size <= w:
+                    Patch = img[y * Stride : y * Stride + Patch_Size, x * Stride : x * Stride + Patch_Size]
+                    labelPatch = label[y * Stride : y * Stride + Patch_Size, x * Stride : x * Stride + Patch_Size]
                     if np.sum(labelPatch) > 0 and len(np.unique(Patch)) > 1:
                         cv.imwrite(img_save, Patch)
                         cv.imwrite(label_save, labelPatch)
 
-                if (y * Stride + Patch_Size <= h and x * Stride < w and x * Stride + Patch_Size > w):
-                    Patch = img[y * Stride:y * Stride + Patch_Size, w - Patch_Size:w]
-                    labelPatch = label[y * Stride:y * Stride + Patch_Size, w - Patch_Size:w]
+                if y * Stride + Patch_Size <= h and x * Stride < w and x * Stride + Patch_Size > w:
+                    Patch = img[y * Stride : y * Stride + Patch_Size, w - Patch_Size : w]
+                    labelPatch = label[y * Stride : y * Stride + Patch_Size, w - Patch_Size : w]
                     if np.sum(labelPatch) > 0 and len(np.unique(Patch)) > 1:
                         cv.imwrite(img_save, Patch)
                         cv.imwrite(label_save, labelPatch)
 
-                if (y * Stride < h and y * Stride + Patch_Size > h and x * Stride + Patch_Size <= w):
-                    Patch = img[h - Patch_Size:h, x * Stride:x * Stride + Patch_Size]
-                    labelPatch = label[h - Patch_Size:h, x * Stride:x * Stride + Patch_Size]
+                if y * Stride < h and y * Stride + Patch_Size > h and x * Stride + Patch_Size <= w:
+                    Patch = img[h - Patch_Size : h, x * Stride : x * Stride + Patch_Size]
+                    labelPatch = label[h - Patch_Size : h, x * Stride : x * Stride + Patch_Size]
                     if np.sum(labelPatch) > 0 and len(np.unique(Patch)) > 1:
                         cv.imwrite(img_save, Patch)
                         cv.imwrite(label_save, labelPatch)
 
-                if (y * Stride < h and y * Stride + Patch_Size > h and x * Stride < w and x * Stride + Patch_Size > w):
-                    Patch = img[h - Patch_Size:h, w - Patch_Size:w]
-                    labelPatch = label[h - Patch_Size:h, w - Patch_Size:w]
+                if y * Stride < h and y * Stride + Patch_Size > h and x * Stride < w and x * Stride + Patch_Size > w:
+                    Patch = img[h - Patch_Size : h, w - Patch_Size : w]
+                    labelPatch = label[h - Patch_Size : h, w - Patch_Size : w]
                     if np.sum(labelPatch) > 0 and len(np.unique(Patch)) > 1:
                         cv.imwrite(img_save, Patch)
                         cv.imwrite(label_save, labelPatch)
 
             # print(i)
             i = i + 1
+
 
 def make_Patch_from_refer(Stride, Patch_Size, Label_Path, Label_Save_Path):
     i = 1
@@ -97,32 +98,38 @@ def make_Patch_from_refer(Stride, Patch_Size, Label_Path, Label_Save_Path):
         # img = cv.imread(imgpath)
         img = read_tif(imgpath)
         h, w, _ = img.shape
-        basename = os.path.basename(imgpath).split('.')[0].replace('_label','')
+        basename = os.path.basename(imgpath).split(".")[0].replace("_label", "")
 
-        for y in range(0, (h - Patch_Size) // Stride + 2):
-            for x in range(0, (w - Patch_Size) // Stride + 2):
-                basename_patch = basename + '_' + str(y) + '_' + str(x) + '.tif'
+        for y in range((h - Patch_Size) // Stride + 2):
+            for x in range((w - Patch_Size) // Stride + 2):
+                basename_patch = basename + "_" + str(y) + "_" + str(x) + ".tif"
                 if basename_patch in refer_list:
-                    label_save = os.path.join(Label_Save_Path, basename + '_' + str(y) + '_' + str(x) + '.tif')
+                    label_save = os.path.join(Label_Save_Path, basename + "_" + str(y) + "_" + str(x) + ".tif")
 
-                    if (y * Stride + Patch_Size <= h and x * Stride + Patch_Size <= w):
-                        Patch = img[y * Stride:y * Stride + Patch_Size, x * Stride:x * Stride + Patch_Size]
+                    if y * Stride + Patch_Size <= h and x * Stride + Patch_Size <= w:
+                        Patch = img[y * Stride : y * Stride + Patch_Size, x * Stride : x * Stride + Patch_Size]
                         cv.imwrite(label_save, Patch)
 
-                    if (y * Stride + Patch_Size <= h and x * Stride < w and x * Stride + Patch_Size > w):
-                        Patch = img[y * Stride:y * Stride + Patch_Size, w - Patch_Size:w]
+                    if y * Stride + Patch_Size <= h and x * Stride < w and x * Stride + Patch_Size > w:
+                        Patch = img[y * Stride : y * Stride + Patch_Size, w - Patch_Size : w]
                         cv.imwrite(label_save, Patch)
 
-                    if (y * Stride < h and y * Stride + Patch_Size > h and x * Stride + Patch_Size <= w):
-                        Patch = img[h - Patch_Size:h, x * Stride:x * Stride + Patch_Size]
+                    if y * Stride < h and y * Stride + Patch_Size > h and x * Stride + Patch_Size <= w:
+                        Patch = img[h - Patch_Size : h, x * Stride : x * Stride + Patch_Size]
                         cv.imwrite(label_save, Patch)
 
-                    if (y * Stride < h and y * Stride + Patch_Size > h and x * Stride < w and x * Stride + Patch_Size > w):
-                        Patch = img[h - Patch_Size:h, w - Patch_Size:w]
+                    if (
+                        y * Stride < h
+                        and y * Stride + Patch_Size > h
+                        and x * Stride < w
+                        and x * Stride + Patch_Size > w
+                    ):
+                        Patch = img[h - Patch_Size : h, w - Patch_Size : w]
                         cv.imwrite(label_save, Patch)
 
             # print(i)
             i = i + 1
+
 
 def compress_data(image_path):
     img_list = os.listdir(image_path)
@@ -157,17 +164,17 @@ def MultiClass2SingleClass(label_path, label_save_path):
         cv.imwrite(save_path, label)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Stride = 512
     Patch_Size = 512
-    Root = r'/data02/ybn/Datasets/Road/Massachusetts/raw/train'
+    Root = r"/data02/ybn/Datasets/Road/Massachusetts/raw/train"
 
-    Image_Path = r'G:\Datasets\GID\Large-scale Classification_5classes\image_RGB/*.tif'
-    Lable_Path = r'G:\Datasets\GID\Large-scale Classification_5classes\label_5classes/*.tif'
-    Image_save_Path = r'/data02/ybn/Datasets/Road/Massachusetts/cropped320/train/image'
-    label_save_path = r'G:\Datasets\GID\water\cropped512\nozero_valid\5classes_label'
+    Image_Path = r"G:\Datasets\GID\Large-scale Classification_5classes\image_RGB/*.tif"
+    Lable_Path = r"G:\Datasets\GID\Large-scale Classification_5classes\label_5classes/*.tif"
+    Image_save_Path = r"/data02/ybn/Datasets/Road/Massachusetts/cropped320/train/image"
+    label_save_path = r"G:\Datasets\GID\water\cropped512\nozero_valid\5classes_label"
     # MultiClass2SingleClass(Lable_Path,label_save_path)
     # compress_data(Lable_Path)
     # make_Patch(Stride, Patch_Size, Image_Path, Lable_Path, Image_save_Path, label_save_path)
     # make_Patch_from_refer(Stride,Patch_Size,Lable_Path,label_save_path)
-    MultiClass2SingleClass(label_save_path,label_save_path)
+    MultiClass2SingleClass(label_save_path, label_save_path)
